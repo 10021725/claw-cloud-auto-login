@@ -1,7 +1,12 @@
 # 使用drission 自动登录claw cloud，避免被识别为闲置账号导致pod被删除
 from DrissionPage import ChromiumPage, ChromiumOptions
 import os
-import time
+import sys
+# 将当前工作目录添加到sys.path，确保能正确导入模块
+current_dir = os.getcwd()
+parent_dir = os.path.join(current_dir, os.pardir)
+sys.path.insert(0, parent_dir)
+from xt_mail import send_html, smtp_config
 
 # 创建配置文件目录
 profile_dir = r"C:\temp\claw_cloud_profile"
@@ -22,6 +27,9 @@ def login_to_claw_cloud():
     # 设置固定的用户数据目录（浏览器配置文件）确保每次使用相同的用户配置
     co.set_local_port(9222)  # 固定端口
     co.set_user_data_path(r"C:\temp\claw_cloud_profile")  # 固定用户配置文件
+
+    # 启用无头模式
+    co.headless(True)  # 设置为无头模式
 
     # 可选：设置其他选项来更好地模拟真实用户行为
     co.set_argument("--start-maximized")  # 最大化窗口
@@ -350,8 +358,11 @@ def login_to_claw_cloud():
         print("正在检测GitHub头像...")
         avatar_elements = new_tab.eles('xpath://img[contains(@src, "avatars.githubusercontent.com")]')
 
+        ap_southeast_login_success = False  # Track login success for second site
+
         if avatar_elements:
             print("检测到已登录状态（找到GitHub头像），跳过登录步骤")
+            ap_southeast_login_success = True
         else:
             print("未检测到登录状态，开始执行登录流程...")
 
@@ -421,6 +432,7 @@ def login_to_claw_cloud():
                                 print("找到匹配条件的GitHub授权按钮，正在点击...")
                                 auth_button.click()
                                 auth_button_found = True
+                                ap_southeast_login_success = True  # Mark login as successful
                                 break
                             else:
                                 print("找到的元素不匹配所需文本，继续搜索...")
@@ -436,8 +448,64 @@ def login_to_claw_cloud():
                     print("警告: 未找到GitHub授权按钮，请手动完成授权")
                 else:
                     print("已成功点击GitHub授权按钮")
+                    ap_southeast_login_success = True  # Mark login as successful
 
-        input("按回车键关闭浏览器...")
+        # Determine overall task success
+        claw_cloud_login_success = bool(customer_center_elements) or button_found
+
+        # Print task execution summary
+        print("\n" + "="*50)
+        print("任务运行总结:")
+        print(f"claw.cloud 登录: {'成功' if claw_cloud_login_success else '失败'}")
+        print(f"ap-southeast-1.run.claw.cloud 登录: {'成功' if ap_southeast_login_success else '失败'}")
+
+        if claw_cloud_login_success and ap_southeast_login_success:
+            print("总体结果: 成功 - 两个网站都成功登录")
+            text = "<h2>claw cloud 自动登录结果</h2><p>claw.cloud 和 ap-southeast-1.run.claw.cloud 均已成功登录。</p>"
+            title = "claw cloud 自动登录结果 - 成功"
+
+            # 发送邮件通知，带异常处理和重试机制
+            max_retries = 2
+            retry_count = 0
+            success = False
+
+            while retry_count <= max_retries and not success:
+                try:
+                    send_html(text, title, **smtp_config)
+                    success = True
+                    print("邮件发送成功")
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count <= max_retries:
+                        print(f"邮件发送失败，正在进行第 {retry_count} 次重试: {str(e)}")
+                    else:
+                        print(f"邮件发送失败，已达到最大重试次数。最终错误: {str(e)}")
+        else:
+            print("总体结果: 失败 - 部分或全部网站登录失败")
+            text = "<h2>claw cloud 自动登录结果</h2><p>claw.cloud 和 ap-southeast-1.run.claw.cloud 至少有一个登录失败。</p>"
+            title = "claw cloud 自动登录结果 - 失败"
+
+            # 发送邮件通知，带异常处理和重试机制
+            max_retries = 2
+            retry_count = 0
+            success = False
+
+            while retry_count <= max_retries and not success:
+                try:
+                    send_html(text, title, **smtp_config)
+                    success = True
+                    print("邮件发送成功")
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count <= max_retries:
+                        print(f"邮件发送失败，正在进行第 {retry_count} 次重试: {str(e)}")
+                    else:
+                        print(f"邮件发送失败，已达到最大重试次数。最终错误: {str(e)}")
+        print("="*50)
+
+        # Close browser after a delay
+        print("任务完成，即将关闭浏览器...")
+        page.wait(2)
 
     except Exception as e:
         print(f"发生错误: {str(e)}")
