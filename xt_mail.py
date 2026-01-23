@@ -2,7 +2,6 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import os
-
 # SMTP 邮件发送配置
 smtp_config = {
     'smtp_server': 'smtpdm.aliyun.com',
@@ -12,7 +11,6 @@ smtp_config = {
     'receivers': [
         "171952355@qq.com",
         "xiatian@ctf.com.cn"
-
     ]
 }
 
