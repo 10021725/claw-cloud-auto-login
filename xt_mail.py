@@ -1,12 +1,13 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import os
 
 # SMTP 邮件发送配置
 smtp_config = {
     'smtp_server': 'smtpdm.aliyun.com',
     'smtp_user': 'domain@service.ctf.com.cn',
-    'smtp_password': 'CTf10021725xt',
+    'smtp_password': os.environ.get('domain_smtp_pwd'),
     'sender': 'domain@service.ctf.com.cn',
     'receivers': [
         "171952355@qq.com",
